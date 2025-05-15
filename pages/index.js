@@ -1,57 +1,81 @@
-import Head from "next/head";
-import Image from "next/image";
-import localFont from "next/font/local";
-import styles from "@/styles/Home.module.css";
-// import { getFeaturedEvents } from "@/dummy-data";
-import EventList from "@/components/events/EventList";
-import { useState } from "react";
-import axios from "axios";
+import { Geist, Geist_Mono } from "next/font/google";
+import fs from 'fs/promises';
+import path, { parse } from 'path';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import Link from "next/link";
 
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
+const geistSans = Geist({
   variable: "--font-geist-sans",
-  weight: "100 900",
+  subsets: ["latin"],
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
+
+const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  weight: "100 900",
+  subsets: ["latin"],
 });
 
-export default function FeaturedEventsPage(props) {
-
+export default function Home(props) {
   console.log(props.data)
+  const [data,setdata]=useState([]);
+  useEffect(()=>{
+    const temp=props.data.filter(val=>val.rating>=8.5);
+    setdata(temp);
+  },[props.data])
+  const r=useRouter();
+
+  const handleclick=()=>{
+    r.push('/Genre')
+  }
+
   return (
     <>
-
-      <div style={{textAlign:"center",fontFamily:"cursive"}}>
-        <h1>Home Page: All Featured Events</h1> 
-        <EventList data={props.data}/>
+      <h2>Top Rated Movies</h2>
+      <ul>
+        {data.map(val => (
+          <li key={val.id} style={{ marginBottom: '15px', borderBottom: '1px solid #ccc' }}>
+            <div><strong>{val.title}</strong></div>
+            <div>Release Year: {val.releaseYear}</div>
+            <div>Rating: {val.rating}</div>
+          </li>
+        ))}
+      </ul>
+  
+      <div style={{ marginTop: '20px' }}>
+        <button style={{cursor:'pointer'}} onClick={handleclick}>Browse Genres</button>
       </div>
-     
-      </>
-
+  
+      <div style={{ marginTop: '10px' }}>
+        <Link href='/Movies'>
+          <button style={{cursor:'pointer'}}> Explore Movies</button>
+        </Link>
+      </div>
+    </>
   );
 }
 
-export async function getStaticProps(){
+export async function getStaticProps() {
+  const p = path.join(process.cwd(), "Data", "Movies.json");
+  const data = await fs.readFile(p);
+  const parsed_data = JSON.parse(data);
 
-  try{
-    const fetched_data=await axios.get('https://events-aed8d-default-rtdb.firebaseio.com/events.json');
-    return{
-      props:{
-        data:fetched_data.data
-      }
-    }
-  }
-  catch{
-    return{
-      props:{
-        data:null
-      }
-    }
-  }
+  const movies = parsed_data.movies;
 
-  
+  const filtered_data = movies.map(movie => ({
+    id: movie.id,
+    title: movie.title,
+    directorId: movie.directorId,
+    description: movie.description,
+    releaseYear: movie.releaseYear,
+    genreId: movie.genreId,
+    rating: movie.rating,
+  }));
+
+  return {
+    props: {
+      data: filtered_data,
+    },
+    revalidate:30
+  };
 }
+
